@@ -98,22 +98,13 @@ const Router = {
 		let subUser = decodeURIComponent(url.pathname.slice(offset));
 		const host = url.hostname;
 
-		const isJson = !isSubPath && subUser.startsWith("json/");
-		if (isJson) {
-			subUser = subUser.slice(5);
-		}
-
 		try {
 			const user = await env.DB.prepare("SELECT * FROM users WHERE username = ? OR uuid = ?").bind(subUser, subUser).first();
 			if (!user || user.connection_type !== atob("dmxlc3M=")) {
 				return new Response("Not Found", { status: 404 });
 			}
 
-			if (isJson) {
-				return await SubscriptionService.generateJson(user, host, env);
-			} else {
-				return await SubscriptionService.generateText(user, host);
-			}
+			return await SubscriptionService.generateText(user, host);
 		} catch (err) {
 			return new Response("Error building config: " + err.message, { status: 500 });
 		}
@@ -135,12 +126,12 @@ const Router = {
 		}
 
 		return new Response(HTML_TEMPLATES.panel, {
-    		headers: {
-        		"Content-Type": "text/html; charset=utf-8",
-        		"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        		"Pragma": "no-cache",
-        		"Expires": "0"
-    		},
+			headers: {
+				"Content-Type": "text/html; charset=utf-8",
+				"Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+				Pragma: "no-cache",
+				Expires: "0",
+			},
 		});
 	},
 
@@ -248,11 +239,11 @@ const Router = {
 			}
 			try {
 				const githubRes = await fetch("https://raw.githubusercontent.com/IR-NETLIFY/zeus/refs/heads/main/zeus.js?t=" + Date.now() + Math.random(), {
-    				headers: {
-        				"Cache-Control": "no-cache, no-store, must-revalidate",
-        				"Pragma": "no-cache",
-        				"Expires": "0"
-    				}
+					headers: {
+						"Cache-Control": "no-cache, no-store, must-revalidate",
+						Pragma: "no-cache",
+						Expires: "0",
+					},
 				});
 				if (!githubRes.ok) throw new Error("خطا در دریافت سورس جدید از گیت‌هاب");
 				const newCode = await githubRes.text();
@@ -605,227 +596,6 @@ const DbService = {
 // ۶. مدیریت تولید کانفیگ‌ها (SUBSCRIPTION SERVICE)
 // ==========================================================
 const SubscriptionService = {
-	async generateJson(user, host, env) {
-		let ips = [host];
-		if (user.ips) {
-			const parsedIps = user.ips
-				.split("\n")
-				.map((ip) => ip.trim())
-				.filter((ip) => ip.length > 0);
-			if (parsedIps.length > 0) ips = parsedIps;
-		}
-
-		const ports = String(user.port || "443")
-			.split(",")
-			.map((p) => p.trim())
-			.filter((p) => p.length > 0);
-		const fp = user.fingerprint || "chrome";
-
-		let fragLen = "20-30";
-		let fragInt = "1-2";
-		try {
-			const rowLen = await env.DB.prepare("SELECT value FROM settings WHERE key = 'frag_len'").first();
-			if (rowLen && rowLen.value) fragLen = rowLen.value;
-			const rowInt = await env.DB.prepare("SELECT value FROM settings WHERE key = 'frag_int'").first();
-			if (rowInt && rowInt.value) fragInt = rowInt.value;
-		} catch (e) {}
-
-		const configArray = [];
-
-		const m1 = decodeURIComponent("%E2%9A%A0%EF%B8%8F%D8%A7%DB%8C%D9%86%20%D9%BE%D9%86%D9%84%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%D9%88%20%D8%BA%DB%8C%D8%B1%20%D9%82%D8%A7%D8%A8%D9%84%20%D9%81%D8%B1%D9%88%D8%B4%20%D8%A7%D8%B3%D8%AA%E2%9A%A0%EF%B8%8F");
-		const m2 = decodeURIComponent("%E2%99%A8%EF%B8%8F%20%40IR_NETLIFY%20%D8%B3%D8%A7%D8%AE%D8%AA%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%E2%99%A8%EF%B8%8F");
-
-		const createFakeConfig = (remarkTitle) => {
-			return {
-				remarks: remarkTitle,
-				version: { min: "25.10.15" },
-				log: { loglevel: "none" },
-				dns: {
-					servers: [
-						{ address: "https://8.8.8.8/dns-query", tag: "remote-dns" },
-						{ address: "8.8.8.8", domains: ["full:" + host], skipFallback: true },
-					],
-					queryStrategy: "UseIP",
-					tag: "dns",
-				},
-				inbounds: [
-					{
-						listen: "127.0.0.1",
-						port: 10808,
-						protocol: "socks",
-						settings: { auth: "noauth", udp: true },
-						sniffing: { destOverride: ["http", "tls"], enabled: true, routeOnly: true },
-						tag: "mixed-in",
-					},
-					{
-						listen: "127.0.0.1",
-						port: 10853,
-						protocol: "dokodemo-door",
-						settings: { address: "1.1.1.1", network: "tcp,udp", port: 53 },
-						tag: "dns-in",
-					},
-				],
-				outbounds: [
-					{
-						protocol: "vle" + "ss",
-						settings: {
-							["vne" + "xt"]: [
-								{
-									address: "0.0.0.0",
-									port: 1,
-									users: [{ id: user.uuid, encryption: "none" }],
-								},
-							],
-						},
-						["stream" + "Settings"]: {
-							network: "ws",
-							["ws" + "Settings"]: { host: host, path: "/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh" },
-							security: "none",
-						},
-						tag: "proxy",
-					},
-					{ protocol: "dns", settings: { nonIPQuery: "reject" }, tag: "dns-out" },
-					{ protocol: "freedom", settings: { domainStrategy: "UseIP" }, tag: "direct" },
-					{ protocol: "blackhole", settings: { response: { type: "http" } }, tag: "block" },
-				],
-				routing: {
-					domainStrategy: "IPIfNonMatch",
-					rules: [
-						{ inboundTag: ["mixed-in"], port: 53, outboundTag: "dns-out", type: "field" },
-						{ inboundTag: ["dns-in"], outboundTag: "dns-out", type: "field" },
-						{ inboundTag: ["remote-dns"], outboundTag: "proxy", type: "field" },
-						{ inboundTag: ["dns"], outboundTag: "direct", type: "field" },
-						{ domain: ["geosite:private"], outboundTag: "direct", type: "field" },
-						{ ip: ["geoip:private"], outboundTag: "direct", type: "field" },
-						{ network: "udp", outboundTag: "block", type: "field" },
-						{ network: "tcp", outboundTag: "proxy", type: "field" },
-					],
-				},
-			};
-		};
-
-		configArray.push(createFakeConfig(m1));
-		configArray.push(createFakeConfig(m2));
-
-		ips.forEach((ip) => {
-			ports.forEach((portStr) => {
-				const isTlsPort = ["443", "2053", "2083", "2087", "2096", "8443"].includes(portStr);
-				const tlsVal = isTlsPort ? "tls" : "none";
-				const remark = user.username + " | " + ip + " | " + portStr;
-
-				const configObj = {
-					remarks: remark,
-					version: { min: "25.10.15" },
-					log: { loglevel: "none" },
-					dns: {
-						servers: [
-							{ address: "https://8.8.8.8/dns-query", tag: "remote-dns" },
-							{ address: "8.8.8.8", domains: ["full:" + host], skipFallback: true },
-						],
-						queryStrategy: "UseIP",
-						tag: "dns",
-					},
-					inbounds: [
-						{
-							listen: "127.0.0.1",
-							port: 10808,
-							protocol: "socks",
-							settings: { auth: "noauth", udp: true },
-							sniffing: { destOverride: ["http", "tls"], enabled: true, routeOnly: true },
-							tag: "mixed-in",
-						},
-						{
-							listen: "127.0.0.1",
-							port: 10853,
-							protocol: "dokodemo-door",
-							settings: { address: "1.1.1.1", network: "tcp,udp", port: 53 },
-							tag: "dns-in",
-						},
-					],
-					outbounds: [
-						{
-							protocol: "vle" + "ss",
-							settings: {
-								["vne" + "xt"]: [
-									{
-										address: ip,
-										port: parseInt(portStr),
-										users: [{ id: user.uuid, encryption: "none" }],
-									},
-								],
-							},
-							["stream" + "Settings"]: {
-								network: "ws",
-								["ws" + "Settings"]: { host: host, path: "/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh" },
-								security: tlsVal,
-								sockopt: { ["dialer" + "Proxy"]: "fragment" },
-							},
-							tag: "proxy",
-						},
-						{
-							protocol: "freedom",
-							settings: {
-								fragment: { packets: "tlshello", length: fragLen, interval: fragInt },
-							},
-							["stream" + "Settings"]: {
-								sockopt: {
-									domainStrategy: "UseIP",
-									happyEyeballs: { tryDelayMs: 250, prioritizeIPv6: false, interleave: 2, maxConcurrentTry: 4 },
-								},
-							},
-							tag: "fragment",
-						},
-						{ protocol: "dns", settings: { nonIPQuery: "reject" }, tag: "dns-out" },
-						{ protocol: "freedom", settings: { domainStrategy: "UseIP" }, tag: "direct" },
-						{ protocol: "blackhole", settings: { response: { type: "http" } }, tag: "block" },
-					],
-					routing: {
-						domainStrategy: "IPIfNonMatch",
-						rules: [
-							{ inboundTag: ["mixed-in"], port: 53, outboundTag: "dns-out", type: "field" },
-							{ inboundTag: ["dns-in"], outboundTag: "dns-out", type: "field" },
-							{ inboundTag: ["remote-dns"], outboundTag: "proxy", type: "field" },
-							{ inboundTag: ["dns"], outboundTag: "direct", type: "field" },
-							{ domain: ["geosite:private"], outboundTag: "direct", type: "field" },
-							{ ip: ["geoip:private"], outboundTag: "direct", type: "field" },
-							{ network: "udp", outboundTag: "block", type: "field" },
-							{ network: "tcp", outboundTag: "proxy", type: "field" },
-						],
-					},
-				};
-
-				if (tlsVal === "tls") {
-					configObj.outbounds[0]["stream" + "Settings"]["tls" + "Settings"] = {
-						serverName: host,
-						fingerprint: fp,
-						alpn: ["http/1.1"],
-						allowInsecure: false,
-					};
-				}
-				configArray.push(configObj);
-			});
-		});
-
-		const downloadBytes = Math.floor((user.used_gb || 0) * 1073741824);
-		const totalBytes = user.limit_gb ? Math.floor(user.limit_gb * 1073741824) : 0;
-		let expireTimestamp = 0;
-
-		if (user.expiry_days && user.created_at) {
-			expireTimestamp = Math.floor((new Date(user.created_at).getTime() + user.expiry_days * 86400000) / 1000);
-		}
-
-		const subUserInfo = `upload=0; download=${downloadBytes}; total=${totalBytes}; expire=${expireTimestamp}`;
-
-		return new Response(JSON.stringify(configArray, null, 2), {
-			headers: {
-				"Content-Type": "text/plain; charset=utf-8",
-				"Access-Control-Allow-Origin": "*",
-				"Cache-Control": "no-store",
-				"Subscription-Userinfo": subUserInfo,
-			},
-		});
-	},
-
 	async generateText(user, host) {
 		let ips = [host];
 		if (user.ips) {
@@ -842,8 +612,8 @@ const SubscriptionService = {
 		const fp = user.fingerprint || "chrome";
 		const links = [];
 
-		const m1 = decodeURIComponent("%E2%9A%A0%EF%B8%8F%D8%A7%DB%8C%D9%86%20%D9%BE%D9%86%D9%84%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%D9%88%20%D8%BA%DB%8C%D8%B1%20%D9%82%D8%A7%D8%A8%D9%84%20%D9%81%D8%B1%D9%88%D8%B4%20%D8%A7%D8%B3%D8%AA%E2%9A%A0%EF%B8%8F");
-		const m2 = decodeURIComponent("%E2%99%A8%EF%B8%8F%20%40IR_NETLIFY%20%D8%B3%D8%A7%D8%AE%D8%AA%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%E2%99%A8%EF%B8%8F");
+		const m1 = decodeURIComponent("%E2%9A%A0%EF%B8%8F%D9%BE%D9%86%D9%84%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%D9%88%20%D8%BA%DB%8C%D8%B1%20%D9%82%D8%A7%D8%A8%D9%84%20%D9%81%D8%B1%D9%88%D8%B4%E2%9A%A0%EF%B8%8F");
+		const m2 = decodeURIComponent("%F0%9F%9A%80%40IR_NETLIFY%20%D8%B3%D8%A7%D8%AE%D8%AA%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%F0%9F%9A%80");
 
 		links.push(atob("dmxlc3M6Ly8=") + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=%2FIn_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh#" + encodeURIComponent(m1));
 		links.push(atob("dmxlc3M6Ly8=") + user.uuid + "@0.0.0.0:1?encryption=none&security=none&type=ws&host=" + host + "&path=%2FIn_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh#" + encodeURIComponent(m2));
@@ -900,15 +670,17 @@ async function flushExpiredTraffic(env) {
 
 		if (activeCount <= 0 || now - lastActive > 65000) {
 			GLOBAL_WRITE_LOCK.set(uname, true);
-			GLOBAL_TRAFFIC_CACHE.set(uname, 0);
-			USER_REQ_CACHE.set(uname, 0);
 
 			const deltaGb = cachedBytes / (1024 * 1024 * 1024);
 			try {
 				await env.DB.prepare("UPDATE users SET used_gb = used_gb + ?, used_req = used_req + ? WHERE username = ?").bind(deltaGb, cachedReqs, uname).run();
 			} catch (e) {
+				console.error(e.message);
 			} finally {
-				GLOBAL_WRITE_LOCK.set(uname, false);
+				GLOBAL_WRITE_LOCK.delete(uname);
+				GLOBAL_TRAFFIC_CACHE.delete(uname);
+				USER_REQ_CACHE.delete(uname);
+				GLOBAL_LAST_ACTIVE_WRITE.delete(uname);
 			}
 		}
 	}
@@ -925,7 +697,15 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 	let validUUID = null;
 
 	function addBytes(bytes) {
-		if (bytes <= 0 || !username) return;
+		if (bytes <= 0) return;
+		if (!username) {
+			uncountedBytes += bytes;
+			return;
+		}
+		if (uncountedBytes > 0) {
+			bytes += uncountedBytes;
+			uncountedBytes = 0;
+		}
 
 		let current = GLOBAL_TRAFFIC_CACHE.get(username) || 0;
 		GLOBAL_TRAFFIC_CACHE.set(username, current + bytes);
@@ -957,6 +737,7 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 				try {
 					await env.DB.prepare("UPDATE users SET used_gb = used_gb + ?, used_req = used_req + ? WHERE username = ?").bind(deltaGb, toCommitReq, username).run();
 				} catch (e) {
+					console.error(e.message);
 				} finally {
 					GLOBAL_WRITE_LOCK.set(username, false);
 				}
@@ -985,8 +766,6 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 
 			if ((cachedBytes > 0 || cachedReqs > 0) && !GLOBAL_WRITE_LOCK.get(uname)) {
 				GLOBAL_WRITE_LOCK.set(uname, true);
-				GLOBAL_TRAFFIC_CACHE.set(uname, 0);
-				USER_REQ_CACHE.set(uname, 0);
 
 				const deltaGb = cachedBytes / (1024 * 1024 * 1024);
 
@@ -994,8 +773,12 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 					try {
 						await env.DB.prepare("UPDATE users SET used_gb = used_gb + ?, used_req = used_req + ? WHERE username = ?").bind(deltaGb, cachedReqs, uname).run();
 					} catch (e) {
+						console.error(e.message);
 					} finally {
-						GLOBAL_WRITE_LOCK.set(uname, false);
+						GLOBAL_WRITE_LOCK.delete(uname);
+						GLOBAL_TRAFFIC_CACHE.delete(uname);
+						USER_REQ_CACHE.delete(uname);
+						GLOBAL_LAST_ACTIVE_WRITE.delete(uname);
 					}
 				};
 
@@ -1004,6 +787,11 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 				} else {
 					writeTask();
 				}
+			} else {
+				GLOBAL_TRAFFIC_CACHE.delete(uname);
+				USER_REQ_CACHE.delete(uname);
+				GLOBAL_LAST_ACTIVE_WRITE.delete(uname);
+				GLOBAL_WRITE_LOCK.delete(uname);
 			}
 		} else {
 			ACTIVE_CONNECTIONS_COUNT.set(uname, activeCount);
@@ -1063,8 +851,10 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 	let remoteConnWrapper = { socket: null, connectingPromise: null, retryConnect: null };
 	let reqUUID = null;
 	let isHeaderParsed = false;
+	let isHeaderParsing = false;
 	let isDnsQuery = false;
 	let chunkBuffer = new Uint8Array(0);
+	let uncountedBytes = 0;
 	const proxyIP = storedData?.proxy_ip || "proxyip.cmliussss.net";
 
 	let wsChain = Promise.resolve();
@@ -1133,6 +923,9 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 			chunkBuffer = concatBytes(chunkBuffer, chunk);
 			if (chunkBuffer.byteLength < 24) return;
 
+			if (isHeaderParsing) return;
+			isHeaderParsing = true;
+
 			reqUUID = extractUUIDFromVless(chunkBuffer);
 			if (!reqUUID) {
 				serverSock.close();
@@ -1143,7 +936,9 @@ async function handleVLESS(env, storedData = null, ctx = null) {
 			try {
 				user = await env.DB.prepare("SELECT * FROM users WHERE uuid = ?").bind(reqUUID).first();
 			} catch (e) {}
-
+			if (isOfflineSet || serverSock.readyState !== WebSocket.OPEN) {
+				return;
+			}
 			if (!user || user.is_active === 0) {
 				serverSock.close();
 				return;
@@ -2520,7 +2315,7 @@ const HTML_TEMPLATES = {
     </div>
 </div>
     <div id="user-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 opacity-0 pointer-events-none transition-opacity duration-200 ease-out">
-        <div id="user-modal-card" class="w-full max-w-xl bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-850 rounded-2xl shadow-xl overflow-hidden transition-[opacity,transform] duration-200 opacity-0 scale-95 ease-out flex flex-col max-h-[90vh] transform-gpu" style="will-change: transform, opacity;">
+        <div id="user-modal-card" class="w-full max-w-xl bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden transition-[opacity,transform] duration-200 opacity-0 scale-95 ease-out flex flex-col max-h-[90vh] transform-gpu" style="will-change: transform, opacity;">
             <div class="px-6 py-4 border-b border-gray-150 dark:border-zinc-800/80 flex justify-between items-center bg-gray-50/50 dark:bg-zinc-900/30">
                 <div class="flex items-center gap-2">
                     <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
@@ -2586,7 +2381,7 @@ const HTML_TEMPLATES = {
                 <div class="pt-2 border-t border-gray-100 dark:border-zinc-900">
                     <label class="block text-xs font-bold text-gray-500 dark:text-zinc-400 mb-3 uppercase tracking-wider">پورت‌های اتصال (انتخاب چندگانه)</label>
                     <div class="space-y-4">
-                        <div class="p-4 bg-gray-50/50 dark:bg-zinc-900/20 border border-gray-200/60 dark:border-zinc-850 rounded-2xl shadow-sm">
+                        <div class="p-4 bg-gray-50/50 dark:bg-zinc-900/20 border border-gray-200/60 dark:border-zinc-800 rounded-2xl shadow-sm">
                             <div class="flex items-center gap-1.5 mb-3">
                                 <span class="flex h-2 w-2 rounded-full bg-blue-500 shadow-sm"></span>
                                 <span class="text-xs font-bold text-blue-600 dark:text-blue-400">🔒 پورت‌های امن (TLS)</span>
@@ -2596,7 +2391,7 @@ const HTML_TEMPLATES = {
                             </div>
                         </div>
 
-                        <div class="p-4 bg-gray-50/50 dark:bg-zinc-900/20 border border-gray-200/60 dark:border-zinc-850 rounded-2xl shadow-sm">
+                        <div class="p-4 bg-gray-50/50 dark:bg-zinc-900/20 border border-gray-200/60 dark:border-zinc-800 rounded-2xl shadow-sm">
                             <div class="flex items-center gap-1.5 mb-3">
                                 <span class="flex h-2 w-2 rounded-full bg-amber-500 shadow-sm"></span>
                                 <span class="text-xs font-bold text-amber-600 dark:text-amber-400">🔓 پورت‌های معمولی (Non-TLS)</span>
@@ -2677,15 +2472,7 @@ const HTML_TEMPLATES = {
         </div>
     </div>
 </div>
-    <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300 ease-out">
-        <div class="w-full max-w-sm bg-white dark:bg-amoled-card border border-gray-200 dark:border-amoled-border rounded-2xl shadow-xl overflow-hidden p-6 text-center transition-all transform duration-300 opacity-0 scale-95 ease-out">
-            <h3 id="qr-modal-title" class="font-bold text-gray-900 dark:text-zinc-100 mb-4">اسکن کد QR</h3>
-            <div class="bg-white p-3 rounded-xl inline-block mb-4 border border-gray-100">
-                <div id="qrcode-box" class="flex justify-center items-center w-48 h-48 mx-auto"></div>
-            </div>
-            <button onclick="toggleQRModal(false)" class="w-full py-2 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 font-medium rounded-lg text-sm transition text-gray-900 dark:text-zinc-100">بستن</button>
-        </div>
-    </div>
+    
 
     <div id="settings-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300 ease-out">
         <div class="w-full max-w-md bg-white dark:bg-amoled-card border border-gray-200 dark:border-amoled-border rounded-2xl shadow-xl overflow-hidden transition-all transform duration-300 opacity-0 scale-95 ease-out">
@@ -3241,38 +3028,24 @@ const HTML_TEMPLATES = {
                                         (!isEffectivelyActive ? '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 rounded-md">غیرفعال</span>' : '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-md">فعال</span>') +
                                         (user.is_online === 1 ? '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-emerald-500 text-white rounded-md animate-pulse" dir="rtl">● آنلاین (' + (user.online_count || 0) + (user.max_connections ? '/' + user.max_connections : '') + ')</span>' : '<span class="px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 text-gray-600 dark:bg-zinc-800 dark:text-zinc-400 rounded-md">آفلاین</span>') +
                                     '</div>' +
-                                    '<div class="grid grid-cols-3 gap-1 w-full">' +
+                                    '<div class="grid grid-cols-2 gap-1 w-full">' +
                                         '<button onclick="copyConfig(\\'' + encodeURIComponent(user.username) + '\\')" title="کپی کانفیگ" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-blue-50 dark:hover:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg></button>' +
-                                        '<button onclick="copyJsonConfig(\\'' + encodeURIComponent(user.username) + '\\')" title="کپی JSON" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg></button>' +
-                                        '<button onclick="showQR(\\'' + encodeURIComponent(user.username) + '\\')" title="کد QR" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-green-50 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg></button>' +
                                         '<button onclick="editUser(\\'' + encodeURIComponent(user.username) + '\\')" title="ویرایش" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-yellow-50 dark:hover:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg></button>' +
                                         '<button onclick="deleteUser(\\'' + encodeURIComponent(user.username) + '\\')" title="حذف" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 hover:bg-red-50 dark:hover:bg-red-950/20 text-red-600 dark:text-red-400 rounded-md transition shadow-sm"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>' +
                                         '<button onclick="toggleUserStatus(\\'' + encodeURIComponent(user.username) + '\\')" title="' + statusBtnTitle + '" class="p-1.5 flex items-center justify-center bg-white dark:bg-zinc-800 border border-gray-200 dark:border-zinc-700 ' + statusBtnColor + ' rounded-md transition shadow-sm">' + statusBtnIcon + '</button>' +
                                     '</div>' +
                                 '</div>' +
                             '</td>' +
-                            '<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' +
-							    '<div class="flex flex-col gap-2 min-w-[140px]">' +
+                            							'<td class="p-2 border-r border-gray-100 dark:border-zinc-800">' +
+							    '<div class="flex flex-col gap-2 w-max mx-auto">' +
 							        '<div class="flex gap-1">' +
-							            '<button onclick="copySubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
+							            '<button onclick="copySubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
 							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>' +
 							                'ساب متنی' +
 							            '</button>' +
-							            '<button onclick="showSubQR(\\'' + encodeURIComponent(user.username) + '\\', \\'normal\\')" title="QR ساب متنی" class="px-2 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 rounded-lg text-xs font-bold transition border border-indigo-200 dark:border-indigo-800">' +
-							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>' +
-							            '</button>' +
 							        '</div>' +
 							        '<div class="flex gap-1">' +
-							            '<button onclick="copyJsonSubLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg text-xs font-bold transition border border-purple-200 dark:border-purple-800">' +
-							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>' +
-							                'ساب JSON' +
-							            '</button>' +
-							            '<button onclick="showSubQR(\\'' + encodeURIComponent(user.username) + '\\', \\'json\\')" title="QR ساب JSON" class="px-2 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/50 rounded-lg text-xs font-bold transition border border-purple-200 dark:border-purple-800">' +
-							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path></svg>' +
-							            '</button>' +
-							        '</div>' +
-							        '<div class="flex gap-1">' +
-							            '<button onclick="copyStatusLink(\\'' + encodeURIComponent(user.username) + '\\')" class="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-bold transition border border-emerald-200 dark:border-emerald-800">' +
+							            '<button onclick="copyStatusLink(\\'' + encodeURIComponent(user.username) + '\\')" class="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 rounded-lg text-xs font-bold transition border border-emerald-200 dark:border-emerald-800">' +
 							                '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>' +
 							                'صفحه وضعیت' +
 							            '</button>' +
@@ -3396,33 +3169,7 @@ async function resetUserData(encodedUsername, actionType) {
             }
         }
 
-        function toggleQRModal(show, link = '', title = 'اسکن کد QR') {
-            const modal = document.getElementById('qr-modal');
-            const card = modal.querySelector('div');
-            const qrBox = document.getElementById('qrcode-box');
-            const titleEl = document.getElementById('qr-modal-title');
-            if (show) {
-                titleEl.innerText = title;
-                qrBox.innerHTML = '';
-                new QRCode(qrBox, {
-                    text: link,
-                    width: 192,
-                    height: 192,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.M
-                });
-                modal.classList.remove('opacity-0', 'pointer-events-none');
-                modal.classList.add('opacity-100', 'pointer-events-auto');
-                card.classList.remove('opacity-0', 'scale-95');
-                card.classList.add('opacity-100', 'scale-100');
-            } else {
-                modal.classList.remove('opacity-100', 'pointer-events-auto');
-                modal.classList.add('opacity-0', 'pointer-events-none');
-                card.classList.remove('opacity-100', 'scale-100');
-                card.classList.add('opacity-0', 'scale-95');
-            }
-        }
+        
 function closePathWarning() {
     const modal = document.getElementById('path-warning-modal');
     const card = modal.querySelector('div');
@@ -3488,9 +3235,7 @@ function openUsageWarning() {
             return window.location.origin + '/feed/' + encodeURIComponent(username);
         }
 
-        function getJsonSubLink(username) {
-            return window.location.origin + '/feed/json/' + encodeURIComponent(username);
-        }
+
 
         function getStatusLink(username) {
             return window.location.origin + '/status/' + encodeURIComponent(username);
@@ -3514,23 +3259,8 @@ function openUsageWarning() {
             });
         }
 
-        function copyJsonSubLink(encodedUsername) {
-            const username = decodeURIComponent(encodedUsername);
-            navigator.clipboard.writeText(getJsonSubLink(username)).then(() => {
-                alert('✅ لینک ساب JSON با موفقیت کپی شد!');
-            }).catch(() => {
-                alert('خطا در کپی کردن لینک ساب JSON!');
-            });
-        }
 
-        function showSubQR(encodedUsername, type) {
-            const username = decodeURIComponent(encodedUsername);
-            if (type === 'normal') {
-                toggleQRModal(true, getSubLink(username), 'QR ساب متنی');
-            } else if (type === 'json') {
-                toggleQRModal(true, getJsonSubLink(username), 'QR ساب JSON');
-            }
-        }
+
 
         function copyConfig(encodedUsername) {
             const username = decodeURIComponent(encodedUsername);
@@ -3543,187 +3273,7 @@ function openUsageWarning() {
             });
         }
 
-        function copyJsonConfig(encodedUsername) {
-            const username = decodeURIComponent(encodedUsername);
-            const user = window.allUsers.find(u => u.username === username);
-            if (!user) return;
-            const host = window.location.hostname;
-            let ips = [host];
-            if (user.ips) {
-                ips = user.ips.split('\\n').map(ip => ip.trim()).filter(ip => ip.length > 0);
-                if (ips.length === 0) ips = [host];
-            }
-            
-            const ports = String(user.port || '443').split(',').map(p => p.trim()).filter(p => p.length > 0);
-            const fp = user.fingerprint || 'chrome';
-
-            const configArray = [];
-
-            const m1 = decodeURIComponent('%E2%9A%A0%EF%B8%8F%D8%A7%DB%8C%D9%86%20%D9%BE%D9%86%D9%84%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%D9%88%20%D8%BA%DB%8C%D8%B1%20%D9%82%D8%A7%D8%A8%D9%84%20%D9%81%D8%B1%D9%88%D8%B4%20%D8%A7%D8%B3%D8%AA%E2%9A%A0%EF%B8%8F');
-            const m2 = decodeURIComponent('%E2%99%A8%EF%B8%8F%20%40IR_NETLIFY%20%D8%B3%D8%A7%D8%AE%D8%AA%20%D8%B1%D8%A7%DB%8C%DA%AF%D8%A7%D9%86%20%E2%99%A8%EF%B8%8F');
-
-            const createFakeConfig = (remarkTitle) => {
-              return {
-                "remarks": remarkTitle,
-                "version": { "min": "25.10.15" },
-                "log": { "loglevel": "none" },
-                "dns": {
-                  "servers": [
-                    { "address": "https://8.8.8.8/dns-query", "tag": "remote-dns" },
-                    { "address": "8.8.8.8", "domains": ["full:" + host], "skipFallback": true }
-                  ],
-                  "queryStrategy": "UseIP",
-                  "tag": "dns"
-                },
-                "inbounds": [
-                  {
-                    "listen": "127.0.0.1", "port": 10808, "protocol": "socks",
-                    "settings": { "auth": "noauth", "udp": true },
-                    "sniffing": { "destOverride": ["http", "tls"], "enabled": true, "routeOnly": true },
-                    "tag": "mixed-in"
-                  },
-                  {
-                    "listen": "127.0.0.1", "port": 10853, "protocol": "dokodemo-door",
-                    "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 },
-                    "tag": "dns-in"
-                  }
-                ],
-                "outbounds": [
-                  {
-                    "protocol": "vle" + "ss",
-                    "settings": {
-                      ["vne" + "xt"]: [
-                        { "address": "0.0.0.0", "port": 1, "users": [{ "id": user.uuid, "encryption": "none" }] }
-                      ]
-                    },
-                    ["stream" + "Settings"]: {
-                      "network": "ws",
-                      ["ws" + "Settings"]: { "host": host, "path": "/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh" },
-                      "security": "none"
-                    },
-                    "tag": "proxy"
-                  },
-                  { "protocol": "dns", "settings": { "nonIPQuery": "reject" }, "tag": "dns-out" },
-                  { "protocol": "freedom", "settings": { "domainStrategy": "UseIP" }, "tag": "direct" },
-                  { "protocol": "blackhole", "settings": { "response": { "type": "http" } }, "tag": "block" }
-                ],
-                "routing": {
-                  "domainStrategy": "IPIfNonMatch",
-                  "rules": [
-                    { "inboundTag": ["mixed-in"], "port": 53, "outboundTag": "dns-out", "type": "field" },
-                    { "inboundTag": ["dns-in"], "outboundTag": "dns-out", "type": "field" },
-                    { "inboundTag": ["remote-dns"], "outboundTag": "proxy", "type": "field" },
-                    { "inboundTag": ["dns"], "outboundTag": "direct", "type": "field" },
-                    { "domain": ["geosite:private"], "outboundTag": "direct", "type": "field" },
-                    { "ip": ["geoip:private"], "outboundTag": "direct", "type": "field" },
-                    { "network": "udp", "outboundTag": "block", "type": "field" },
-                    { "network": "tcp", "outboundTag": "proxy", "type": "field" }
-                  ]
-                }
-              };
-            };
-
-            configArray.push(createFakeConfig(m1));
-            configArray.push(createFakeConfig(m2));
-
-            ips.forEach((ip) => {
-              ports.forEach((portStr) => {
-                const isTlsPort = tlsPorts.includes(portStr);
-                const tlsVal = isTlsPort ? 'tls' : 'none';
-                const remark = user.username + ' | ' + ip + ' | ' + portStr;
-                
-                const jsonConfig = {
-                  "remarks": remark,
-                  "version": { "min": "25.10.15" },
-                  "log": { "loglevel": "none" },
-                  "dns": {
-                    "servers": [
-                      { "address": "https://8.8.8.8/dns-query", "tag": "remote-dns" },
-                      { "address": "8.8.8.8", "domains": ["full:" + host], "skipFallback": true }
-                    ],
-                    "queryStrategy": "UseIP",
-                    "tag": "dns"
-                  },
-                  "inbounds": [
-                    {
-                      "listen": "127.0.0.1", "port": 10808, "protocol": "socks",
-                      "settings": { "auth": "noauth", "udp": true },
-                      "sniffing": { "destOverride": ["http", "tls"], "enabled": true, "routeOnly": true },
-                      "tag": "mixed-in"
-                    },
-                    {
-                      "listen": "127.0.0.1", "port": 10853, "protocol": "dokodemo-door",
-                      "settings": { "address": "1.1.1.1", "network": "tcp,udp", "port": 53 },
-                      "tag": "dns-in"
-                    }
-                  ],
-                  "outbounds": [
-                    {
-                      "protocol": "vle" + "ss",
-                      "settings": {
-                        ["vne" + "xt"]: [
-                          { "address": ip, "port": parseInt(portStr), "users": [{ "id": user.uuid, "encryption": "none" }] }
-                        ]
-                      },
-                      ["stream" + "Settings"]: {
-                        "network": "ws",
-                        ["ws" + "Settings"]: { "host": host, "path": "/In_Panel_Rayeghan_Ast_Va_Gheyre_Ghabele_Foroosh" },
-                        "security": tlsVal,
-                        "sockopt": { ["dialer" + "Proxy"]: "fragment" }
-                      },
-                      "tag": "proxy"
-                    },
-                    {
-                      "protocol": "freedom",
-                      "settings": {
-                        "fragment": {
-                          "packets": "tlshello",
-                          "length": window.globalFragLen || "20-30",
-                          "interval": window.globalFragInt || "1-2"
-                        }
-                      },
-                      "streamSettings": {
-                        "sockopt": {
-                          "domainStrategy": "UseIP",
-                          "happyEyeballs": { "tryDelayMs": 250, "prioritizeIPv6": false, "interleave": 2, "maxConcurrentTry": 4 }
-                        }
-                      },
-                      "tag": "fragment"
-                    },
-                    { "protocol": "dns", "settings": { "nonIPQuery": "reject" }, "tag": "dns-out" },
-                    { "protocol": "freedom", "settings": { "domainStrategy": "UseIP" }, "tag": "direct" },
-                    { "protocol": "blackhole", "settings": { "response": { "type": "http" } }, "tag": "block" }
-                  ],
-                  "routing": {
-                    "domainStrategy": "IPIfNonMatch",
-                    "rules": [
-                      { "inboundTag": ["mixed-in"], "port": 53, "outboundTag": "dns-out", "type": "field" },
-                      { "inboundTag": ["dns-in"], "outboundTag": "dns-out", "type": "field" },
-                      { "inboundTag": ["remote-dns"], "outboundTag": "proxy", "type": "field" },
-                      { "inboundTag": ["dns"], "outboundTag": "direct", "type": "field" },
-                      { "domain": ["geosite:private"], "outboundTag": "direct", "type": "field" },
-                      { "ip": ["geoip:private"], "outboundTag": "direct", "type": "field" },
-                      { "network": "udp", "outboundTag": "block", "type": "field" },
-                      { "network": "tcp", "outboundTag": "proxy", "type": "field" }
-                    ]
-                  }
-                };
-                
-                if (tlsVal === 'tls') {
-                  jsonConfig.outbounds[0]["stream" + "Settings"]["tls" + "Settings"] = {
-                    "serverName": host, "fingerprint": fp, "alpn": ["http/1.1"], "allowInsecure": false
-                  };
-                }
-                configArray.push(jsonConfig);
-              });
-            });
-
-            navigator.clipboard.writeText(JSON.stringify(configArray, null, 2)).then(() => {
-                alert('✅ کانفیگ JSON با موفقیت کپی شد!');
-            }).catch(() => {
-                alert('خطا در کپی کردن کانفیگ JSON!');
-            });
-        }
+     
 
 function editUser(encodedUsername) {
     const username = decodeURIComponent(encodedUsername);
@@ -3950,7 +3500,7 @@ function editUser(encodedUsername) {
                 window.location.reload();
             }
         }
-const CURRENT_VERSION = '1.4.8';
+const CURRENT_VERSION = '1.4.9';
 const UPDATE_FIX = "constsCURRENT_VERSION='d.d.d'";
 
 		async function checkForUpdates(isManual = false) {
@@ -4286,14 +3836,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="flex items-center gap-2">🚀 کپی کانفیگ VLESS (مستقیم)</span>
                     <span class="text-blue-500">کپی</span>
                 </button>
-                <button onclick="copyJsonSub()" class="w-full flex justify-between items-center px-4 py-3 bg-white dark:bg-amoled-card border border-gray-200 dark:border-amoled-border hover:border-purple-500 dark:hover:border-purple-500 rounded-xl text-xs font-medium transition shadow-sm">
-                    <span class="flex items-center gap-2">🌐 کپی لینک ساب‌اسکریپشن JSON (نوین)</span>
-                    <span class="text-purple-500">کپی</span>
-                </button>
-                <button onclick="showQR()" class="w-full flex justify-between items-center px-4 py-3 bg-white dark:bg-amoled-card border border-gray-200 dark:border-amoled-border hover:border-emerald-500 dark:hover:border-emerald-500 rounded-xl text-xs font-medium transition shadow-sm">
-                    <span class="flex items-center gap-2">📱 نمایش کد QR لینک ساب</span>
-                    <span class="text-emerald-500">مشاهده</span>
-                </button>
             </div>
         </div>
     </div>
@@ -4307,45 +3849,12 @@ document.addEventListener('DOMContentLoaded', () => {
         @IR_NETLIFY
     </a>
 </div>
-    <!-- QR Modal -->
-    <div id="qr-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300 ease-out">
-        <div class="w-full max-w-sm bg-white dark:bg-amoled-card border border-gray-200 dark:border-amoled-border rounded-2xl shadow-xl overflow-hidden p-6 text-center transition-all transform duration-300 opacity-0 scale-95 ease-out">
-            <h3 class="font-bold text-gray-900 dark:text-zinc-100 mb-4">اسکن کد QR لینک ساب</h3>
-            <div class="bg-white p-3 rounded-xl inline-block mb-4 border border-gray-100">
-                <div id="qrcode-box" class="flex justify-center items-center w-48 h-48 mx-auto"></div>
-            </div>
-            <button onclick="toggleQRModal(false)" class="w-full py-2 bg-gray-100 hover:bg-gray-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 font-medium rounded-lg text-sm transition text-gray-900 dark:text-zinc-100">بستن</button>
-        </div>
-    </div>
+
 
     <script>
         /* {{USER_DATA_PLACEHOLDER}} */
         
-        function toggleQRModal(show, link = '') {
-            const modal = document.getElementById('qr-modal');
-            const card = modal.querySelector('div');
-            const qrBox = document.getElementById('qrcode-box');
-            if (show) {
-                qrBox.innerHTML = '';
-                new QRCode(qrBox, {
-                    text: link,
-                    width: 192,
-                    height: 192,
-                    colorDark : "#000000",
-                    colorLight : "#ffffff",
-                    correctLevel : QRCode.CorrectLevel.M
-                });
-                modal.classList.remove('opacity-0', 'pointer-events-none');
-                modal.classList.add('opacity-100', 'pointer-events-auto');
-                card.classList.remove('opacity-0', 'scale-95');
-                card.classList.add('opacity-100', 'scale-100');
-            } else {
-                modal.classList.remove('opacity-100', 'pointer-events-auto');
-                modal.classList.add('opacity-0', 'pointer-events-none');
-                card.classList.remove('opacity-100', 'scale-100');
-                card.classList.add('opacity-0', 'scale-95');
-            }
-        }
+        
 
         function getHost() {
             return window.location.host;
@@ -4377,20 +3886,13 @@ document.addEventListener('DOMContentLoaded', () => {
             navigator.clipboard.writeText(getVlessLink()).then(() => alert('✅ کانفیگ VLESS با موفقیت کپی شد!'));
         }
 
-        function copyJsonSub() {
-            const link = window.location.protocol + '//' + getHost() + '/feed/json/' + encodeURIComponent(window.statusUser.username);
-            navigator.clipboard.writeText(link).then(() => alert('✅ لینک ساب JSON کپی شد!'));
-        }
+
 
         function copyTextSub() {
             const link = window.location.protocol + '//' + getHost() + '/sub/' + encodeURIComponent(window.statusUser.username);
             navigator.clipboard.writeText(link).then(() => alert('✅ لینک ساب متنی کپی شد!'));
         }
 
-        function showQR() {
-            const link = window.location.protocol + '//' + getHost() + '/sub/' + encodeURIComponent(window.statusUser.username);
-            toggleQRModal(true, link);
-        }
 
         document.addEventListener('DOMContentLoaded', () => {
             const u = window.statusUser;
