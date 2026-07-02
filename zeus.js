@@ -2949,6 +2949,20 @@ login: `<!DOCTYPE html>
             </form>
         </div>
     </div>
+	<div id="update-success-modal" class="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300 ease-out">
+		<div class="w-full max-w-md bg-white dark:bg-amoled-card border border-emerald-500/50 rounded-3xl shadow-2xl overflow-hidden p-6 text-center transition-all transform duration-300 opacity-0 scale-95 ease-out">
+			<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-500 mb-4 shadow-inner">
+				<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"></path></svg>
+			</div>
+			<h3 class="font-black text-xl text-gray-900 dark:text-white mb-2">آپدیت موفقیت‌آمیز</h3>
+			<p class="text-sm text-gray-600 dark:text-gray-400 mb-6 leading-relaxed font-medium">
+				آپدیت موفق بود لطفا صفحه را 10 ثانیه دیگر رفرش کنید تا نسخه جدید لود شود
+			</p>
+			<button onclick="window.location.reload()" class="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-sm transition duration-300 shadow-lg shadow-emerald-500/25">
+				رفرش صفحه
+			</button>
+		</div>
+	</div>
 <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2 pointer-events-none"></div>
 
 <div id="custom-confirm-modal" class="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm opacity-0 pointer-events-none transition-all duration-300 ease-out">
@@ -4386,10 +4400,17 @@ const UPDATE_FIX = "constsCURRENT_VERSION='d.d.d'";
                     return;
                 }
                 if (res.ok && data.success) {
-                    alert('پنل با موفقیت آپدیت شد و دسترسی‌های کلودفلر تنظیم شدند! در حال راه‌اندازی مجدد (۵ ثانیه صبر کنید)...');
+                    const successModal = document.getElementById('update-success-modal');
+                    const successCard = successModal.querySelector('div');
+                    
+                    successModal.classList.remove('opacity-0', 'pointer-events-none');
+                    successModal.classList.add('opacity-100', 'pointer-events-auto');
+                    successCard.classList.remove('opacity-0', 'scale-95');
+                    successCard.classList.add('opacity-100', 'scale-100');
+                    
                     setTimeout(() => {
                         window.location.reload();
-                    }, 5000);
+                    }, 10000);
                 } else {
                     alert('خطا در بروزرسانی. لطفاً با استفاده از دکمه "آپدیت دستی" اقدام کنید.');
                     btn.disabled = false;
