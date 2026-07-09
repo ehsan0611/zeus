@@ -6086,7 +6086,7 @@ const WORKER_DONATE_URL = 'https://noisy-meadow-a466.ir-netlify.workers.dev/';
 				return;
 			}
 
-			const strictProxyPattern = /^(?:(?:socks4|socks5|socks|http|https):\/\/)?([a-zA-Z0-9]{8}):([a-zA-Z0-9]{12})@([^:\/]+):(\d+)$/i;
+			const strictProxyPattern = /^(?:(?:socks4|socks5|socks|http|https):\\/\\/)?([a-zA-Z0-9]{8}):([a-zA-Z0-9]{12})@([^:\\/]+):(\\d+)$/i;
 			if (!strictProxyPattern.test(proxyInput)) {
 				resultSpan.innerText = '❌ فرمت نامعتبر! پروکسی اختصاصی باید دارای یوزر ۸ کاراکتری و رمز ۱۲ کاراکتری باشد.';
 				resultSpan.className = 'text-[11px] font-bold text-red-500 w-full mt-1 break-words';
