@@ -1365,7 +1365,7 @@ async function handleVLESS(env, storedData = null, ctx = null, request = null) {
 						if (socks5) {
 							s = await connectProxy(socks5, addr, port, dataPayload);
 						} else {
-							let activeProxyIP = "";
+							let activeProxyIP = proxyIP;
 							if (user?.user_proxy_iata) {
 								activeProxyIP = user.user_proxy_iata.toLowerCase() + ".proxyip.cmliussss.net";
 							} else if (user?.user_proxy_ip) {
