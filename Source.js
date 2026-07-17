@@ -1585,10 +1585,10 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 								}
 							} else {
 							let activeProxyIP = proxyIP;
-							if (user?.user_proxy_iata) {
-								activeProxyIP = "";
-							} else if (user?.user_proxy_ip) {
+							let tryProxyFirst = false;
+							if (user?.user_proxy_ip) {
 								activeProxyIP = user.user_proxy_ip;
+								tryProxyFirst = true;
 							}
 							let fHost = activeProxyIP;
 							let fPort = port;
@@ -1611,7 +1611,7 @@ async function handlevIees(env, storedData = null, ctx = null, request = null) {
 									}
 								}
 							}
-							const isCustomProxy = activeProxyIP && activeProxyIP !== "";
+							const isCustomProxy = tryProxyFirst && activeProxyIP && activeProxyIP !== "";
 							if (isCustomProxy) {
 								try {
 									s = await connectDirect(fHost, fPort, dataPayload, targetDoh);
